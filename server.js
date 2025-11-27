@@ -6,8 +6,12 @@ const jwt = require("jsonwebtoken");
 const { Pool } = pkg;
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cors({
+  origin: "*",
+  methods: "GET,POST,PUT,DELETE",
+  allowedHeaders: "Content-Type,Authorization",
+}));
 
 // JWT secret key
 const JWT_SECRET = "@Opolo851990"; // replace with env variable in production
@@ -214,6 +218,82 @@ app.delete("/api/budgets/:id",verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to delete budget" });
   }
 });
+
+app.post("/api/budgets/bulk-upload",verifyToken, async (req, res) => {
+
+  try {
+    const rows = req.body; // array of objects
+
+    const columns = [
+        "sphere",
+        "financialyear",
+        "typeofinfo",
+        "fundtype",
+        "vote_code",
+        "vote_name",
+        "sub_subprogramme_code",
+        "sub_subprogramme_name",
+        "service_area_code",
+        "service_area_name",
+        "programme_code",
+        "programme_name",
+        "subprogramme_code",
+        "subprogramme_name",
+        "budget_output_code",
+        "budget_output_description",
+        "project_code",
+        "item_code",
+        "item_description",
+        "fundingsourcecode",
+        "fundingsource",
+        "amount",
+      ];
+    // Convert array → bulk values
+    const values = rows
+      .map((r) => `(
+        '${r.Sphere}',
+        '${r.FinancialYear}',
+        '${r.TypeOfInfo}',
+        '${r.FundType}',
+        '${r.Vote_Code}',
+        '${r.Vote_Name}',
+        '${r.Sub_SubProgramme_Code}',
+        '${r.Sub_SubProgramme_Name}',
+        '${r.Service_Area_Code}',
+        '${r.Service_Area_Name}',
+        '${r.Programme_Code}',
+        '${r.Programme_Name.replace(/'/g, "''")}',
+        '${r.SubProgramme_Code}',
+        '${r.SubProgramme_Name.replace(/'/g, "''")}',
+        '${r.Budget_Output_Code}',
+        '${r.Budget_Output_Description.replace(/'/g, "''")}',
+        '${r.Project_Code}',
+        '${r.Item_Code}',
+        '${r.Item_Description.replace(/'/g, "''")}',
+        '${r.FundingSourceCode}',
+        '${r.FundingSource.replace(/'/g, "''")}',
+        ${Number(r.Amount)}
+      )`)
+      .join(",");
+
+    const query = `
+      INSERT INTO s1_main (${columns.join(",")})
+      VALUES ${values}
+    `;
+
+    await pool.query(query);
+
+    // End of Insert
+    
+    res.json({ success: true, count: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to save CSV data" });
+  }
+
+});
+
+
+
 
 // -------------------------
 // Middleware to verify JWT
